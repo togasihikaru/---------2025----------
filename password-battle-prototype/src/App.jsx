@@ -361,7 +361,9 @@ function App() {
       if (screen === 'battle') {
         // 勝利時にXPを獲得
         if (crackerHp <= 0) {
-          const xpGained = Math.floor((playerStats.score || 0) * 0.5) + 10; // スコアの50% + 基本10XP
+          //const xpGained = Math.floor((playerStats.score || 0) * 0.5) + 10; // スコアの50% + 基本10XP
+          const xpGained = Math.floor((playerStats.score || 0) * 0.4) + (5 + playerLevel * 2);//修正しました
+
           addXP(xpGained);
         }
         
@@ -452,7 +454,7 @@ function App() {
 
     handleTimingResult(multiplier, resultText);
   }, [isTimingGameActive, timingPosition, playerStats.strength, handleTimingResult]);
-
+/*
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.code === 'Space' && isTimingGameActive) {
@@ -469,7 +471,7 @@ function App() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isTimingGameActive, stopTimingGame]);
-
+*/
   const startTimingGame = () => {
     setIsTimingGameActive(true);
     setTimingPosition(0);
@@ -483,6 +485,26 @@ function App() {
   };
 
   // 結果の取得
+  // パスワードの強度に応じてキャラクターのアイコンを決定する関数
+  const getCharacterIcon = () => {
+    switch (passwordStrength) {
+      case 0:
+        return '🥚'; // 卵
+      case 1:
+        return '🐣'; // ひよこ
+      case 2:
+        return '🐥'; // 少し成長したひよこ
+      case 3:
+        return '🐔'; // 鶏
+      case 4:
+        return '🐉'; // ドラゴン
+      case 5:
+        return '🛡️'; // 盾
+      default:
+        return '👾'; // エラー時など
+    }
+  };
+
   const getResult = () => {
     const isWin = crackerHp <= 0;
     const crackTime = calculateCrackTime(playerStats.score || 0);
@@ -670,8 +692,7 @@ function App() {
             <div className="flex justify-between items-center my-4">
               <div className="flex-1 text-center">
                 <p className="text-sm font-bold text-blue-300">あなたのキャラクター</p>
-                <div className="w-16 h-16 rounded-full mx-auto shadow-lg" style={{ backgroundColor: getCharacterColor() }}></div>
-                <p className="text-xs text-gray-300 mt-1">レベル {playerLevel}</p>
+                <div className="w-16 h-16 rounded-full mx-auto shadow-lg text-4xl flex items-center justify-center" style={{ backgroundColor: getCharacterColor() }}>{getCharacterIcon()}</div><p className="text-xs text-gray-300 mt-1">レベル {playerLevel}</p>
               </div>
               <div className="flex-1 text-center">
                 <p className="text-sm font-bold text-red-300">{getCrackerInfo().name}</p>
