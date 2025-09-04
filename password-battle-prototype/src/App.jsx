@@ -103,6 +103,9 @@ function App() {
   const [timingPosition, setTimingPosition] = useState(0);
   // バトルログの自動スクロール用
   const battleLogRef = useRef(null);
+  // 勝利時XPの多重付与防止用フラグと直近付与XP保持
+  const rewardGrantedRef = useRef(false);
+  const [lastAwardedXP, setLastAwardedXP] = useState(0);
 
   // ローカルストレージからユーザー名とレベル情報をロード
   useEffect(() => {
@@ -156,6 +159,33 @@ function App() {
     }
     return false; // レベルアップしなかった
   }, [playerXP, playerLevel]);
+
+  // レベルに応じて一度のバトルで獲得できるXP/レベル上昇を制限
+  const computeAdjustedBattleXP = useCallback((baseXP) => {
+    const maxLevelIndex = LEVEL_CONFIG.requiredXP.length - 1;
+    const currentLevel = Math.min(playerLevel, maxLevelIndex);
+    const currentXP = playerXP;
+
+    // すでに最大レベルは付与なし
+    if (currentLevel >= maxLevelIndex) return 0;
+
+    // レベル1: どれだけ稼いでもレベル3まで
+    if (currentLevel <= 1) {
+      const capXP = LEVEL_CONFIG.requiredXP[Math.min(3, maxLevelIndex)];
+      if (currentXP >= capXP) return 0;
+      const targetXP = Math.min(currentXP + baseXP, capXP);
+      const gain = targetXP - currentXP;
+      return Math.max(1, gain); // 最低1XPは保証（上限内）
+    }
+
+    // レベル2以上: 一度のバトルで最大+1レベルまで
+    const capLevel = Math.min(currentLevel + 1, maxLevelIndex);
+    const capXP = LEVEL_CONFIG.requiredXP[capLevel];
+    const targetXP = Math.min(currentXP + baseXP, capXP);
+    const gain = targetXP - currentXP;
+    // 上限内で最低1XPを保証
+    return Math.max(1, gain);
+  }, [playerLevel, playerXP]);
 
   const getPasswordConstraints = () => {
     const level = Math.min(playerLevel, LEVEL_CONFIG.constraints.maxLength.length - 1);
@@ -293,6 +323,8 @@ function App() {
     setCrackerHp(crackerInfo.hp);
     setBattleLog([]);
     setIsPlayerTurn(true);
+    rewardGrantedRef.current = false;
+    setLastAwardedXP(0);
     setScreen('battle');
   };
 
@@ -360,19 +392,27 @@ function App() {
     if (playerHp <= 0 || crackerHp <= 0) {
       if (screen === 'battle') {
         // 勝利時にXPを獲得
-        if (crackerHp <= 0) {
-          //const xpGained = Math.floor((playerStats.score || 0) * 0.5) + 10; // スコアの50% + 基本10XP
-          const xpGained = Math.floor((playerStats.score || 0) * 0.4) + (5 + playerLevel * 2);//修正しました
-
-          addXP(xpGained);
+        if (!rewardGrantedRef.current) {
+          rewardGrantedRef.current = true;
+          if (crackerHp <= 0) {
+            // スコアに強く連動させ、最低でも少し貰えるように調整
+            // 例: score=20 -> 70XP / score=50 -> 130XP / score=100 -> 230XP
+            const baseXP = Math.max(15, Math.floor(30 + (playerStats.score || 0) * 2));
+            const adjustedXP = computeAdjustedBattleXP(baseXP);
+            if (adjustedXP > 0) {
+              setLastAwardedXP(adjustedXP);
+              addXP(adjustedXP);
+            } else {
+              setLastAwardedXP(0);
+            }
+          }
+          setTimeout(() => {
+            setScreen('result');
+          }, 1500); // 結果画面へ遷移
         }
-        
-        setTimeout(() => {
-          setScreen('result');
-        }, 1500); // 結果画面へ遷移
       }
     }
-  }, [playerHp, crackerHp, screen, playerStats.score, addXP]);
+  }, [playerHp, crackerHp, screen, playerStats.score, addXP, computeAdjustedBattleXP, playerLevel]);
 
   // バトルログの自動スクロール
   useEffect(() => {
@@ -454,7 +494,7 @@ function App() {
 
     handleTimingResult(multiplier, resultText);
   }, [isTimingGameActive, timingPosition, playerStats.strength, handleTimingResult]);
-/*
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.code === 'Space' && isTimingGameActive) {
@@ -471,7 +511,7 @@ function App() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isTimingGameActive, stopTimingGame]);
-*/
+
   const startTimingGame = () => {
     setIsTimingGameActive(true);
     setTimingPosition(0);
@@ -832,7 +872,7 @@ function App() {
       }
       case 'result': {
         const result = getResult();
-        const xpGained = result.isWin ? Math.floor((playerStats.score || 0) * 0.5) + 10 : 0;
+        const xpGained = result.isWin ? lastAwardedXP : 0;
         return (
           <div className="text-center">
             <h1 className="text-3xl font-bold mb-4" style={{ color: result.isWin ? '#22c55e' : '#ef4444' }}>
