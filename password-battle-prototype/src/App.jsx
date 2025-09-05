@@ -106,6 +106,14 @@ function App() {
   // 勝利時XPの多重付与防止用フラグと直近付与XP保持
   const rewardGrantedRef = useRef(false);
   const [lastAwardedXP, setLastAwardedXP] = useState(0);
+  // デバッグモードフラグ（Shift+Dで切り替え）
+  const [devMode, setDevMode] = useState(false);
+
+// デバッグ用：クラッカーを即撃破
+const debugKillMonster = () => {
+  console.log("💥 デバッグ即撃破実行"); // ←確認用ログ
+  setCrackerHp(0); 
+};
 
   // ローカルストレージからユーザー名とレベル情報をロード
   useEffect(() => {
@@ -328,6 +336,8 @@ function App() {
     setScreen('battle');
   };
 
+  
+
   // 敵クラッカーの進化システム
   const getCrackerInfo = useCallback(() => {
     // レベルに応じた基本ステータス（調整済み）
@@ -374,6 +384,22 @@ function App() {
       setBattleLog((prevLog) => [...prevLog, `${crackerInfo.name}の攻撃！あなたは ${crackerDamage} のダメージを受けた！`]);
     }, 500);
   }, [playerStats.attack, playerStats.strength, getCrackerInfo]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.shiftKey && e.key.toLowerCase() === "d") {
+        setDevMode((prev) => {
+          const next = !prev;
+          console.log(`🔧 DEV MODE: ${next ? "ON" : "OFF"}`); // ← ログを出力
+          return next;
+        });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   // オートバトル
   useEffect(() => {
@@ -859,6 +885,17 @@ function App() {
               </button>
             )}
 
+             {/* デバッグモード時のみ表示 */}
+              {devMode && (
+                <button
+                  className="flex-1 py-2 px-4 rounded-lg bg-red-500/80 hover:bg-red-600/80 
+                            text-white font-bold border border-red-400/30 transition-all duration-300"
+                  onClick={debugKillMonster}
+                >
+                  💥 即撃破
+                </button>
+              )}
+
             {!isAutoBattle && isTimingGameActive && (
               <button
                 className="w-full py-3 px-4 rounded-lg bg-yellow-500/80 hover:bg-yellow-600/80 text-white font-bold backdrop-blur-sm border border-yellow-400/30 transition-all duration-300 shadow-lg"
@@ -934,7 +971,15 @@ function App() {
         }
       `}
       </style>
-      
+
+    
+    {/* DEVモードラベル */}
+    {devMode && (
+      <div className="fixed top-2 right-2 bg-red-600 text-white px-3 py-1 rounded-lg shadow-lg text-sm font-bold z-50">
+        🔧 DEV MODE
+      </div>
+    )}    
+        
       {/* レベルアップモーダル */}
       {showLevelUp && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
